@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TestMaster — Онлайн Тестування</title>
+<title>.TestMaster — Онлайн Тестування</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- ======= FIREBASE CONFIG — ЗАМІНИТИ НА СВОЇ ДАНІ ======= -->
@@ -871,26 +871,27 @@ function getClassFromUrl() {
 
 async function loadFromFirebase() {
   try {
-    const { db, collection, getDocs, query, orderBy } = fb();
+    const { db, collection, getDocs } = fb();
 
-    // Load tests
+    // Load tests — works for all users (including anonymous) once Firestore rules allow read: true
     const testsSnap = await getDocs(collection(db, 'tests'));
     state.tests = [];
     testsSnap.forEach(docSnap => {
       state.tests.push({ id: docSnap.id, ...docSnap.data() });
     });
 
-    // Load results
-    const resSnap = await getDocs(collection(db, 'results'));
-    state.results = [];
-    resSnap.forEach(docSnap => {
-      state.results.push({ id: docSnap.id, ...docSnap.data() });
-    });
+    // Load results — only for authenticated users
+    if (fbUser()) {
+      const resSnap = await getDocs(collection(db, 'results'));
+      state.results = [];
+      resSnap.forEach(docSnap => {
+        state.results.push({ id: docSnap.id, ...docSnap.data() });
+      });
+    }
 
     state.useFirebase = true;
     setBadge('connected', '🔥 Firebase');
 
-    // Seed demo test if no tests exist and user is admin
     if (state.tests.length === 0 && isAdmin()) await seedDemoFirebase();
 
     console.log('Firebase loaded:', state.tests.length, 'tests,', state.results.length, 'results');
@@ -1529,20 +1530,26 @@ function checkUrlParams() {
   const testId = params.get('test');
   if (!testId) return;
 
+  // Wait until tests are actually loaded (poll with retries)
+  let attempts = 0;
   const tryOpen = () => {
+    attempts++;
     const test = state.tests.find(t => t.id === testId);
     if (test) {
       showPage('test');
       selectTest(testId);
+    } else if (attempts < 20) {
+      // Not loaded yet — retry every 300ms (up to 6 seconds total)
+      setTimeout(tryOpen, 300);
     } else {
       toast('Тест не знайдено або видалено', 'error');
       showPage('test');
     }
   };
-  setTimeout(tryOpen, 600);
+  // First attempt after a short delay
+  setTimeout(tryOpen, 200);
 }
 
-// Students coming via share link don't need to be logged in
 function isShareLinkAccess() {
   const p = new URLSearchParams(window.location.search);
   return p.has('test') && p.has('class');
