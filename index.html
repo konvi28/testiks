@@ -431,6 +431,93 @@
     .nav-tab { padding: 8px 12px; font-size: 13px; }
   }
   .divider { height: 1px; background: var(--border); margin: 20px 0; }
+  /* LIGHT THEME */
+  body.light {
+    --bg: #f0f2f8;
+    --surface: #ffffff;
+    --card: #ffffff;
+    --border: #dde1f0;
+    --accent: #7c3aed;
+    --accent2: #0891b2;
+    --accent3: #d97706;
+    --text: #1a1a2e;
+    --muted: #6b7280;
+    --danger: #dc2626;
+    --success: #059669;
+  }
+  body.light::before {
+    background: radial-gradient(ellipse at 30% 20%, rgba(124,58,237,0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(6,182,212,0.04) 0%, transparent 50%);
+  }
+  body.light .nav {
+    background: rgba(255,255,255,0.92);
+    border-bottom-color: var(--border);
+  }
+  body.light .card,
+  body.light .modal,
+  body.light .question-card,
+  body.light .test-card-item,
+  body.light .test-manage-card,
+  body.light .question-item,
+  body.light .result-stat,
+  body.light .editor-card {
+    background: #ffffff;
+    border-color: var(--border);
+  }
+  body.light .input,
+  body.light .select,
+  body.light .textarea {
+    background: #f8f9fc;
+    color: var(--text);
+    border-color: var(--border);
+  }
+  body.light .btn-ghost {
+    color: var(--muted);
+    border-color: var(--border);
+  }
+  body.light .btn-secondary {
+    background: #f0f2f8;
+    color: var(--text);
+    border-color: var(--border);
+  }
+  body.light .btn-secondary:hover { background: #e2e6f0; }
+  body.light .nav-user { background: #f0f2f8; border-color: var(--border); }
+  body.light .option-btn { background: #f8f9fc; border-color: var(--border); }
+  body.light .option-btn:hover:not(:disabled) { background: rgba(124,58,237,0.06); }
+  body.light .option-btn .opt-letter { background: #eef0f8; border-color: var(--border); }
+  body.light .toast { background: #ffffff; border-color: var(--border); color: var(--text); }
+  body.light .empty-state { border-color: var(--border); }
+  body.light .progress-bar { background: #e8eaf4; }
+  body.light .timer-display { background: rgba(217,119,6,0.08); }
+  body.light .hero-sub, body.light .auth-sub { color: var(--muted); }
+  body.light #page-home { background: transparent; }
+  body.light table tr { border-bottom-color: var(--border); }
+
+  /* Theme toggle button */
+  .theme-toggle {
+    width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text);
+    cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; flex-shrink: 0;
+  }
+  .theme-toggle:hover { background: var(--border); }
+
+  /* FOOTER */
+  .site-footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    margin-top: auto;
+    position: relative; z-index: 1;
+  }
+  .site-footer span {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    font-weight: 700;
+  }
+
 </style>
 </head>
 <body>
@@ -452,6 +539,7 @@
       <div class="nav-avatar" id="nav-avatar">?</div>
       <span id="nav-user-name" style="font-size:13px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
     </div>
+    <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Змінити тему">🌙</button>
     <button class="btn btn-ghost btn-sm" onclick="doLogout()">Вийти</button>
   </div>
 </nav>
@@ -1485,14 +1573,16 @@ function editTestInAdmin(id) {
 // ============================================================
 // TEST SESSION
 // ============================================================
+function setDisplay(id, val) { const el = document.getElementById(id); if (el) el.style.display = val; }
+
 function initTestPage() {
   stopTimer();
   state.acActive = false;
-  document.getElementById('test-selector').style.display = 'block';
-  document.getElementById('test-name-input').style.display = 'none';
-  document.getElementById('test-start').style.display = 'none';
-  document.getElementById('test-question').style.display = 'none';
-  document.getElementById('test-results').style.display = 'none';
+  setDisplay('test-selector', 'block');
+  setDisplay('test-name-input', 'none');
+  setDisplay('test-start', 'none');
+  setDisplay('test-question', 'none');
+  setDisplay('test-results', 'none');
 
   const cards = document.getElementById('test-cards');
   if (!state.tests.length) {
@@ -1530,23 +1620,34 @@ function checkUrlParams() {
   const testId = params.get('test');
   if (!testId) return;
 
-  // Wait until tests are actually loaded (poll with retries)
   let attempts = 0;
   const tryOpen = () => {
     attempts++;
     const test = state.tests.find(t => t.id === testId);
     if (test) {
-      showPage('test');
-      selectTest(testId);
+      // For anonymous share-link students: DON'T call showPage (it triggers initTestPage which crashes)
+      // Just make page-test active and directly call selectTest
+      if (!fbUser()) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById('page-test').classList.add('active');
+        // Hide all sub-panels first safely
+        setDisplay('test-selector', 'none');
+        setDisplay('test-name-input', 'none');
+        setDisplay('test-start', 'none');
+        setDisplay('test-question', 'none');
+        setDisplay('test-results', 'none');
+        selectTest(testId);
+      } else {
+        showPage('test');
+        selectTest(testId);
+      }
     } else if (attempts < 20) {
-      // Not loaded yet — retry every 300ms (up to 6 seconds total)
       setTimeout(tryOpen, 300);
     } else {
       toast('Тест не знайдено або видалено', 'error');
-      showPage('test');
+      if (fbUser()) showPage('test');
     }
   };
-  // First attempt after a short delay
   setTimeout(tryOpen, 200);
 }
 
@@ -1561,25 +1662,28 @@ function selectTest(id) {
   state.sessionTest = test;
   state.sessionClassName = getClassFromUrl();
 
-  // If student came via share link OR not logged in → ask for name
   const user = fbUser();
   const viaShareLink = !!getClassFromUrl();
+
   if (!user || viaShareLink) {
-    // Show name input screen
-    document.getElementById('test-selector').style.display = 'none';
-    document.getElementById('test-name-input').style.display = 'flex';
-    document.getElementById('name-input-test-title').textContent = test.name;
+    setDisplay('test-selector', 'none');
+    setDisplay('test-name-input', 'flex');
+    setDisplay('test-start', 'none');
+    setDisplay('test-question', 'none');
+    setDisplay('test-results', 'none');
+
+    const titleEl = document.getElementById('name-input-test-title');
+    if (titleEl) titleEl.textContent = test.name;
 
     const classBadge = document.getElementById('name-input-class-badge');
-    if (state.sessionClassName) {
-      classBadge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;border-radius:20px;padding:5px 16px;font-size:14px;font-weight:600;">🏫 ${state.sessionClassName}</span>`;
-    } else {
-      classBadge.innerHTML = '';
+    if (classBadge) {
+      classBadge.innerHTML = state.sessionClassName
+        ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;border-radius:20px;padding:5px 16px;font-size:14px;font-weight:600;">🏫 ${state.sessionClassName}</span>`
+        : '';
     }
-    document.getElementById('student-name-input').value = '';
-    setTimeout(() => document.getElementById('student-name-input').focus(), 100);
+    const nameInput = document.getElementById('student-name-input');
+    if (nameInput) { nameInput.value = ''; setTimeout(() => nameInput.focus(), 150); }
   } else {
-    // Logged-in user — use account name
     state.sessionStudent = user.displayName || user.email || 'Анонім';
     showTestStart();
   }
@@ -1599,21 +1703,32 @@ function confirmStudentName() {
 }
 
 function showTestStart() {
-  document.getElementById('test-start').style.display = 'block';
-  document.getElementById('start-test-title').textContent = state.sessionTest.name;
+  setDisplay('test-selector', 'none');
+  setDisplay('test-name-input', 'none');
+  setDisplay('test-start', 'block');
+  setDisplay('test-question', 'none');
+  setDisplay('test-results', 'none');
+
+  const titleEl = document.getElementById('start-test-title');
+  if (titleEl) titleEl.textContent = state.sessionTest.name;
 
   const classInfo = state.sessionClassName
     ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;border-radius:20px;padding:4px 14px;font-size:13px;font-weight:600;margin-bottom:8px;">🏫 ${state.sessionClassName}</span><br>`
     : '';
-  document.getElementById('start-test-desc').innerHTML = classInfo + (state.sessionTest.desc || '');
-  document.getElementById('start-q-count').textContent = state.sessionTest.questions.length;
+  const descEl = document.getElementById('start-test-desc');
+  if (descEl) descEl.innerHTML = classInfo + (state.sessionTest.desc || '');
+
+  const qCount = document.getElementById('start-q-count');
+  if (qCount) qCount.textContent = state.sessionTest.questions.length;
+
   const avgTime = Math.round(state.sessionTest.questions.reduce((s,q)=>s+q.time,0) / state.sessionTest.questions.length);
-  document.getElementById('start-avg-time').textContent = avgTime + 'с';
+  const avgEl = document.getElementById('start-avg-time');
+  if (avgEl) avgEl.textContent = avgTime + 'с';
 }
 
 function beginTest() {
-  document.getElementById('test-start').style.display = 'none';
-  document.getElementById('test-question').style.display = 'block';
+  setDisplay('test-start', 'none');
+  setDisplay('test-question', 'block');
   state.sessionAnswers = [];
   state.sessionCurrent = 0;
   state.sessionScore = 0;
@@ -1943,5 +2058,8 @@ window.addEventListener('resize', () => {
   }
 });
 </script>
+<!-- FOOTER -->
+<footer class="site-footer">Розробник <span>by Krasovskiy</span></footer>
+
 </body>
 </html>
