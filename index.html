@@ -2075,6 +2075,30 @@ window.addEventListener('resize', () => {
     _initW = window.innerWidth; _initH = window.innerHeight;
   }
 });
+
+// ============================================================
+// THEME
+// ============================================================
+window.toggleTheme = function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  localStorage.setItem('tm_theme', isLight ? 'light' : 'dark');
+  const navBtn = document.getElementById('theme-toggle-btn');
+  if (navBtn) navBtn.textContent = isLight ? '☀️' : '🌙';
+  const floatBtn = document.getElementById('theme-toggle-float');
+  if (floatBtn) floatBtn.textContent = isLight ? '☀️' : '🌙';
+}
+window.initTheme = function initTheme() {
+  const saved = localStorage.getItem('tm_theme');
+  if (saved === 'light') {
+    document.body.classList.add('light');
+    const navBtn = document.getElementById('theme-toggle-btn');
+    if (navBtn) navBtn.textContent = '☀️';
+    const floatBtn = document.getElementById('theme-toggle-float');
+    if (floatBtn) floatBtn.textContent = '☀️';
+  }
+}
+document.addEventListener('DOMContentLoaded', initTheme);
+
 </script>
 <!-- FOOTER -->
 <footer class="site-footer">Розробник <span>by Krasovskiy</span></footer>
