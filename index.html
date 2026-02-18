@@ -502,6 +502,21 @@
   }
   .theme-toggle:hover { background: var(--border); }
 
+
+  /* Floating theme toggle — always visible */
+  .theme-toggle-fixed {
+    position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer; font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    transition: all 0.2s;
+  }
+  .theme-toggle-fixed:hover { transform: scale(1.1); box-shadow: 0 6px 24px rgba(124,58,237,0.35); }
+
   /* FOOTER */
   .site-footer {
     text-align: center;
@@ -521,6 +536,9 @@
 </style>
 </head>
 <body>
+
+<!-- FLOATING THEME TOGGLE -->
+<button class="theme-toggle-fixed" id="theme-toggle-float" onclick="toggleTheme()" title="Змінити тему">🌙</button>
 
 <!-- NAV -->
 <nav class="nav" id="main-nav" style="display:none">
