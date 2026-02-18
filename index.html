@@ -45,13 +45,27 @@
       document.getElementById('main-nav').style.display = 'flex';
       document.getElementById('nav-user-name').textContent = user.displayName || user.email;
       const isAdmin = user.email === window._adminEmail;
-      document.getElementById('nav-tab-admin').style.display = isAdmin ? '' : 'none';
-      document.getElementById('nav-tab-manage').style.display = isAdmin ? '' : 'none';
+      document.getElementById('nav-tab-admin').style.display = '';
+      document.getElementById('nav-tab-manage').style.display = '';
       if (!window._appReady) {
         window._appReady = true;
-        loadFromFirebase().then(() => showPage('home'));
+        loadFromFirebase().then(() => {
+          showPage('home');
+          checkUrlParams();
+        });
       }
     } else {
+      // Check if student is coming via a share link (?test=...&class=...)
+      const p = new URLSearchParams(window.location.search);
+      if (p.has('test') && p.has('class')) {
+        // Anonymous student access — bypass login
+        window._appReady = true;
+        document.querySelectorAll('.page').forEach(pg => pg.classList.remove('active'));
+        document.getElementById('page-test').classList.add('active');
+        document.getElementById('main-nav').style.display = 'none';
+        loadFromFirebase().then(() => checkUrlParams());
+        return;
+      }
       window._appReady = false;
       document.getElementById('main-nav').style.display = 'none';
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -627,7 +641,26 @@
     </div>
   </div>
 
-  <div id="test-start" style="display:none;text-align:center;padding:60px 20px;">
+  <!-- Name input for students (shown when coming via share link) -->
+  <div id="test-name-input" style="display:none;align-items:center;justify-content:center;min-height:60vh;padding:32px 20px;">
+    <div style="width:100%;max-width:420px;text-align:center;">
+      <div id="name-input-test-title" style="font-family:'Unbounded',sans-serif;font-size:20px;font-weight:800;margin-bottom:6px;"></div>
+      <div id="name-input-class-badge" style="margin-bottom:24px;"></div>
+      <div class="card" style="text-align:left;">
+        <h3 style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:700;margin-bottom:6px;">👤 Введіть ваше ім'я</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Ім'я збережеться у результатах тесту</p>
+        <div class="form-group">
+          <input class="input" id="student-name-input" placeholder="Прізвище Ім'я (напр. Іванов Іван)"
+            onkeydown="if(event.key==='Enter')confirmStudentName()" style="font-size:16px;padding:14px;" />
+        </div>
+        <button class="btn btn-primary btn-lg" style="width:100%;justify-content:center;" onclick="confirmStudentName()">
+          Далі →
+        </button>
+      </div>
+    </div>
+  </div>
+
+
     <div class="start-title" id="start-test-title"></div>
     <div id="start-test-desc" style="color:var(--muted);margin-bottom:20px;font-size:15px;"></div>
     <div style="
@@ -720,6 +753,34 @@
   </div>
 </div>
 
+<!-- MODAL: SHARE TEST -->
+<div class="modal-overlay" id="modal-share">
+  <div class="modal" style="max-width:520px;">
+    <h3>🔗 Поділитись тестом</h3>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:20px;">
+      Вкажіть назву класу — посилання буде унікальним для кожного класу, а результати збережуться окремо.
+    </p>
+    <div id="share-test-name" style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:700;margin-bottom:16px;"></div>
+    <div class="form-group">
+      <label class="form-label">Назва класу / групи</label>
+      <input class="input" id="share-class-name" placeholder="Наприклад: 7-А, 8-Б, Група 1..." />
+    </div>
+    <div id="share-link-result" style="display:none;">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:12px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Посилання для класу</div>
+        <div id="share-link-text" style="font-size:13px;word-break:break-all;color:var(--accent2);"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" id="copy-link-btn" onclick="copyShareLink()">
+        📋 Скопіювати посилання
+      </button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-share')">Закрити</button>
+      <button class="btn btn-cyan" onclick="generateShareLink()">Згенерувати посилання →</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // CONFIG
@@ -744,6 +805,7 @@ let state = {
   sessionStartTime: null,
   sessionCorrect: 0,
   sessionWrong: 0,
+  sessionClassName: '',
   acViolations: 0,
   acMaxViolations: 3,
   acActive: false,
@@ -756,6 +818,56 @@ let state = {
 function fb() { return window._fb; }
 function fbUser() { return window._fbUser; }
 function isAdmin() { return fbUser()?.email === _adminEmail; }
+function canManageTests() { return !!fbUser() || !state.useFirebase; }
+function isTestOwner(test) {
+  if (isAdmin()) return true;
+  return test.ownerId === fbUser()?.uid;
+}
+
+// ============================================================
+// SHARE / CLASS LINK
+// ============================================================
+let _shareTestId = null;
+
+function openShareModal(testId) {
+  _shareTestId = testId;
+  const test = state.tests.find(t => t.id === testId);
+  document.getElementById('share-test-name').textContent = '📝 ' + (test?.name || '');
+  document.getElementById('share-class-name').value = '';
+  document.getElementById('share-link-result').style.display = 'none';
+  openModal('modal-share');
+  setTimeout(() => document.getElementById('share-class-name').focus(), 100);
+}
+
+function generateShareLink() {
+  const className = document.getElementById('share-class-name').value.trim();
+  if (!className) { document.getElementById('share-class-name').style.borderColor='var(--danger)'; return; }
+  document.getElementById('share-class-name').style.borderColor = '';
+  const url = buildClassUrl(_shareTestId, className);
+  document.getElementById('share-link-text').textContent = url;
+  document.getElementById('share-link-result').style.display = 'block';
+}
+
+function buildClassUrl(testId, className) {
+  const base = window.location.origin + window.location.pathname;
+  return `${base}?test=${encodeURIComponent(testId)}&class=${encodeURIComponent(className)}`;
+}
+
+function copyShareLink() {
+  const url = document.getElementById('share-link-text').textContent;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('copy-link-btn');
+    btn.innerHTML = '✅ Скопійовано!';
+    btn.style.background = 'var(--success)';
+    setTimeout(() => { btn.innerHTML = '📋 Скопіювати посилання'; btn.style.background = ''; }, 2000);
+    toast('Посилання скопійовано! 🔗', 'success');
+  }).catch(() => prompt('Скопіюйте посилання:', url));
+}
+
+// Read class from URL
+function getClassFromUrl() {
+  return new URLSearchParams(window.location.search).get('class') || '';
+}
 
 async function loadFromFirebase() {
   try {
@@ -793,10 +905,11 @@ async function loadFromFirebase() {
 async function saveTestToFirebase(test) {
   try {
     const { db, doc, setDoc } = fb();
+    if (!test.ownerId && fbUser()) test.ownerId = fbUser().uid;
     await setDoc(doc(db, 'tests', test.id), test);
   } catch (e) {
     console.error('Save test error:', e);
-    toast('Помилка збереження тесту', 'error');
+    toast('Помилка збереження: перевірте правила Firestore', 'error');
   }
 }
 
@@ -1004,13 +1117,14 @@ function showPage(name) {
     document.getElementById('nav-user-name').textContent = user.displayName || user.email;
   }
 
-  // Admin tabs visibility
-  const admin = isAdmin() || (state.useFirebase === false && !window._fbUser);
-  document.getElementById('home-admin-btn').style.display = isAdmin() ? '' : 'none';
+  // Nav tabs
+  document.getElementById('nav-tab-admin').style.display = fbUser() ? '' : 'none';
+  document.getElementById('nav-tab-manage').style.display = fbUser() ? '' : 'none';
+  document.getElementById('home-admin-btn').style.display = fbUser() ? '' : 'none';
 
   if (name === 'home') updateHomeStats();
-  if (name === 'admin') { if (!isAdmin() && state.useFirebase) { toast('Доступ заборонено', 'error'); showPage('home'); return; } initAdmin(); }
-  if (name === 'manage') { if (!isAdmin() && state.useFirebase) { toast('Доступ заборонено', 'error'); showPage('home'); return; } renderManage(); }
+  if (name === 'admin') { if (!canManageTests()) { toast('Увійдіть в систему', 'error'); showPage('home'); return; } initAdmin(); }
+  if (name === 'manage') { if (!canManageTests()) { toast('Увійдіть в систему', 'error'); showPage('home'); return; } renderManage(); }
   if (name === 'test') initTestPage();
 }
 
@@ -1027,7 +1141,7 @@ function updateHomeStats() {
   if (user?.displayName) {
     document.getElementById('home-welcome').textContent = `Привіт, ${user.displayName}! Готовий перевірити свої знання?`;
   }
-  document.getElementById('home-admin-btn').style.display = isAdmin() ? '' : 'none';
+  document.getElementById('home-admin-btn').style.display = fbUser() ? '' : 'none';
 }
 
 // ============================================================
@@ -1041,7 +1155,8 @@ function renderAdminTestSelect() {
   const sel = document.getElementById('admin-test-select');
   const cur = sel.value;
   sel.innerHTML = '<option value="">— Обери тест —</option>';
-  state.tests.forEach(t => {
+  const visible = isAdmin() ? state.tests : state.tests.filter(t => !t.ownerId || t.ownerId === fbUser()?.uid || t.ownerId === 'local');
+  visible.forEach(t => {
     const o = document.createElement('option');
     o.value = t.id; o.textContent = t.name;
     if (t.id === cur || t.id === state.currentTestId) o.selected = true;
@@ -1211,7 +1326,14 @@ function openCreateTest() {
 async function createTest() {
   const name = document.getElementById('new-test-name').value.trim();
   if (!name) { toast('Введіть назву тесту!', 'error'); return; }
-  const test = { id: 'test_' + Date.now(), name, desc: document.getElementById('new-test-desc').value.trim(), questions: [] };
+  const test = {
+    id: 'test_' + Date.now(),
+    name,
+    desc: document.getElementById('new-test-desc').value.trim(),
+    questions: [],
+    ownerId: fbUser()?.uid || 'local',
+    ownerName: fbUser()?.displayName || fbUser()?.email || 'Невідомо'
+  };
   state.tests.push(test);
   state.currentTestId = test.id;
   if (state.useFirebase) await saveTestToFirebase(test);
@@ -1240,48 +1362,116 @@ async function deleteTest(id) {
 // ============================================================
 function renderManage() {
   const grid = document.getElementById('tests-grid');
-  if (!state.tests.length) {
-    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">📋</div><p>Ще немає жодного тесту.</p></div>';
+  const visible = isAdmin()
+    ? state.tests
+    : state.tests.filter(t => !t.ownerId || t.ownerId === fbUser()?.uid || t.ownerId === 'local');
+
+  if (!visible.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">📋</div><p>У вас ще немає тестів. Створіть перший!</p></div>';
   } else {
     grid.innerHTML = '';
-    state.tests.forEach(t => {
-      const totalTime = (t.questions || []).reduce((s, q) => s + (q.time || 0), 0);
+    visible.forEach(t => {
+      const totalTime = (t.questions||[]).reduce((s,q)=>s+(q.time||0),0);
+      const ownerTag = isAdmin() && t.ownerName ? `<span style="font-size:11px;color:var(--accent2);margin-left:8px;">👤 ${t.ownerName}</span>` : '';
       const div = document.createElement('div');
       div.className = 'test-manage-card';
       div.innerHTML = `
-        <div class="tmcard-title">${t.name}</div>
-        <div class="tmcard-meta">${t.desc || 'Без опису'} · ${(t.questions||[]).length} питань · ≈${totalTime}с</div>
+        <div class="tmcard-title">${t.name}${ownerTag}</div>
+        <div class="tmcard-meta">${t.desc||'Без опису'} · ${(t.questions||[]).length} питань · ≈${totalTime}с</div>
         <div class="tmcard-actions">
           <button class="btn btn-secondary btn-sm" onclick="editTestInAdmin('${t.id}')">✏️ Редагувати</button>
           <button class="btn btn-cyan btn-sm" onclick="goTest('${t.id}')">🎯 Пройти</button>
+          <button class="btn btn-primary btn-sm" onclick="openShareModal('${t.id}')">🔗 Поділитись</button>
           <button class="btn btn-danger btn-sm" onclick="deleteTest('${t.id}')">🗑</button>
         </div>`;
       grid.appendChild(div);
     });
   }
 
+  // Results grouped by test → by class
   const rt = document.getElementById('results-table');
   if (!state.results.length) {
     rt.innerHTML = '<div class="empty-state"><div class="icon">📊</div><p>Результатів поки немає</p></div>';
     return;
   }
-  let html = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
-    <thead><tr style="border-bottom:1px solid var(--border);">
-      ${['Студент','Тест','Результат','Правильних','Час','Дата'].map(h => `<th style="padding:10px 12px;text-align:left;color:var(--muted);font-weight:600;">${h}</th>`).join('')}
-    </tr></thead><tbody>`;
-  state.results.slice().reverse().forEach(r => {
-    const color = r.pct >= 80 ? 'var(--success)' : r.pct >= 50 ? 'var(--accent3)' : 'var(--danger)';
-    html += `<tr style="border-bottom:1px solid var(--border);">
-      <td style="padding:10px 12px;font-weight:500;">${r.student}</td>
-      <td style="padding:10px 12px;color:var(--muted);">${r.testName}</td>
-      <td style="padding:10px 12px;font-weight:700;color:${color};">${r.pct}%</td>
-      <td style="padding:10px 12px;">${r.correct}/${r.total}</td>
-      <td style="padding:10px 12px;color:var(--muted);">${r.timeTaken}с</td>
-      <td style="padding:10px 12px;color:var(--muted);">${r.date}</td>
-    </tr>`;
+
+  // Filter results: non-admin sees only results for their own tests
+  const myTestIds = new Set(visible.map(t => t.id));
+  const myResults = isAdmin() ? state.results : state.results.filter(r => myTestIds.has(r.testId));
+
+  if (!myResults.length) {
+    rt.innerHTML = '<div class="empty-state"><div class="icon">📊</div><p>Результатів по ваших тестах поки немає</p></div>';
+    return;
+  }
+
+  // Group: testId → className → [results]
+  const grouped = {};
+  myResults.forEach(r => {
+    if (!grouped[r.testId]) grouped[r.testId] = { name: r.testName, classes: {} };
+    const cls = r.className || '—';
+    if (!grouped[r.testId].classes[cls]) grouped[r.testId].classes[cls] = [];
+    grouped[r.testId].classes[cls].push(r);
   });
-  html += '</tbody></table></div>';
-  rt.innerHTML = html;
+
+  let html = '';
+  Object.values(grouped).forEach(testGroup => {
+    html += `<div style="margin-bottom:32px;">
+      <div style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:700;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+        📝 ${testGroup.name}
+      </div>`;
+
+    Object.entries(testGroup.classes).forEach(([className, results]) => {
+      const avg = Math.round(results.reduce((s,r)=>s+r.pct,0)/results.length);
+      const avgColor = avg>=80?'var(--success)':avg>=50?'var(--accent3)':'var(--danger)';
+      const passed = results.filter(r=>r.pct>=60).length;
+
+      html += `
+        <div style="margin-bottom:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;">🏫 ${className}</span>
+              <span style="font-size:13px;color:var(--muted);">${results.length} учнів</span>
+            </div>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;">
+              <div style="text-align:center;">
+                <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:800;color:${avgColor};">${avg}%</div>
+                <div style="font-size:11px;color:var(--muted);">Середній бал</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:800;color:var(--success);">${passed}/${results.length}</div>
+                <div style="font-size:11px;color:var(--muted);">Склали (≥60%)</div>
+              </div>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead><tr style="border-bottom:1px solid var(--border);">
+                <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Учень</th>
+                <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Результат</th>
+                <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Правильних</th>
+                <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Час</th>
+                <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Дата</th>
+              </tr></thead>
+              <tbody>`;
+
+      results.slice().sort((a,b)=>b.pct-a.pct).forEach(r => {
+        const c = r.pct>=80?'var(--success)':r.pct>=50?'var(--accent3)':'var(--danger)';
+        html += `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:8px 12px;font-weight:500;">${r.student}</td>
+          <td style="padding:8px 12px;font-weight:700;color:${c};">${r.pct}%</td>
+          <td style="padding:8px 12px;">${r.correct}/${r.total}</td>
+          <td style="padding:8px 12px;color:var(--muted);">${r.timeTaken}с</td>
+          <td style="padding:8px 12px;color:var(--muted);">${r.date}</td>
+        </tr>`;
+      });
+
+      html += `</tbody></table></div></div>`;
+    });
+
+    html += `</div>`;
+  });
+
+  rt.innerHTML = `<div>${html}</div>`;
 }
 
 function editTestInAdmin(id) {
@@ -1298,6 +1488,7 @@ function initTestPage() {
   stopTimer();
   state.acActive = false;
   document.getElementById('test-selector').style.display = 'block';
+  document.getElementById('test-name-input').style.display = 'none';
   document.getElementById('test-start').style.display = 'none';
   document.getElementById('test-question').style.display = 'none';
   document.getElementById('test-results').style.display = 'none';
@@ -1314,33 +1505,102 @@ function initTestPage() {
     div.className = 'test-card-item';
     div.innerHTML = `
       <div class="test-card-title">${t.name}</div>
-      <div class="test-card-meta" style="margin-bottom:16px;">${t.desc || ''}</div>
+      <div class="test-card-meta" style="margin-bottom:12px;">${t.desc || ''}</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
         <span class="badge badge-answers">${(t.questions||[]).length} питань</span>
         <span class="badge badge-time">≈${totalTime}с</span>
       </div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="selectTest('${t.id}')">Почати →</button>`;
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="selectTest('${t.id}')">Почати →</button>
+        <button class="btn btn-secondary btn-sm" title="Поділитись" onclick="openShareModal('${t.id}')">🔗</button>
+      </div>`;
     cards.appendChild(div);
   });
 }
 
 function goTest(id) { showPage('test'); selectTest(id); }
 
+function getClassFromUrl() {
+  return decodeURIComponent(new URLSearchParams(window.location.search).get('class') || '');
+}
+
+function checkUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const testId = params.get('test');
+  if (!testId) return;
+
+  const tryOpen = () => {
+    const test = state.tests.find(t => t.id === testId);
+    if (test) {
+      showPage('test');
+      selectTest(testId);
+    } else {
+      toast('Тест не знайдено або видалено', 'error');
+      showPage('test');
+    }
+  };
+  setTimeout(tryOpen, 600);
+}
+
+// Students coming via share link don't need to be logged in
+function isShareLinkAccess() {
+  const p = new URLSearchParams(window.location.search);
+  return p.has('test') && p.has('class');
+}
+
 function selectTest(id) {
   const test = state.tests.find(t => t.id === id);
   if (!test || !(test.questions?.length)) { toast('Тест порожній!', 'error'); return; }
   state.sessionTest = test;
+  state.sessionClassName = getClassFromUrl();
 
-  // Use logged-in user's name
+  // If student came via share link OR not logged in → ask for name
   const user = fbUser();
-  state.sessionStudent = user?.displayName || user?.email || 'Анонім';
+  const viaShareLink = !!getClassFromUrl();
+  if (!user || viaShareLink) {
+    // Show name input screen
+    document.getElementById('test-selector').style.display = 'none';
+    document.getElementById('test-name-input').style.display = 'flex';
+    document.getElementById('name-input-test-title').textContent = test.name;
 
-  document.getElementById('test-selector').style.display = 'none';
+    const classBadge = document.getElementById('name-input-class-badge');
+    if (state.sessionClassName) {
+      classBadge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;border-radius:20px;padding:5px 16px;font-size:14px;font-weight:600;">🏫 ${state.sessionClassName}</span>`;
+    } else {
+      classBadge.innerHTML = '';
+    }
+    document.getElementById('student-name-input').value = '';
+    setTimeout(() => document.getElementById('student-name-input').focus(), 100);
+  } else {
+    // Logged-in user — use account name
+    state.sessionStudent = user.displayName || user.email || 'Анонім';
+    showTestStart();
+  }
+}
+
+function confirmStudentName() {
+  const name = document.getElementById('student-name-input').value.trim();
+  if (!name) {
+    document.getElementById('student-name-input').style.borderColor = 'var(--danger)';
+    document.getElementById('student-name-input').placeholder = 'Введіть ваше ім\'я!';
+    return;
+  }
+  document.getElementById('student-name-input').style.borderColor = '';
+  state.sessionStudent = name;
+  document.getElementById('test-name-input').style.display = 'none';
+  showTestStart();
+}
+
+function showTestStart() {
   document.getElementById('test-start').style.display = 'block';
-  document.getElementById('start-test-title').textContent = test.name;
-  document.getElementById('start-test-desc').textContent = test.desc || '';
-  document.getElementById('start-q-count').textContent = test.questions.length;
-  const avgTime = Math.round(test.questions.reduce((s, q) => s + q.time, 0) / test.questions.length);
+  document.getElementById('start-test-title').textContent = state.sessionTest.name;
+
+  const classInfo = state.sessionClassName
+    ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;border-radius:20px;padding:4px 14px;font-size:13px;font-weight:600;margin-bottom:8px;">🏫 ${state.sessionClassName}</span><br>`
+    : '';
+  document.getElementById('start-test-desc').innerHTML = classInfo + (state.sessionTest.desc || '');
+  document.getElementById('start-q-count').textContent = state.sessionTest.questions.length;
+  const avgTime = Math.round(state.sessionTest.questions.reduce((s,q)=>s+q.time,0) / state.sessionTest.questions.length);
   document.getElementById('start-avg-time').textContent = avgTime + 'с';
 }
 
@@ -1548,6 +1808,7 @@ async function finishTest() {
     userId: fbUser()?.uid || 'demo',
     testName: state.sessionTest.name,
     testId: state.sessionTest.id,
+    className: state.sessionClassName || '',
     pct, correct: state.sessionCorrect, total,
     timeTaken, score: state.sessionScore,
     date: new Date().toLocaleDateString('uk-UA')
@@ -1559,7 +1820,16 @@ async function finishTest() {
 
 function retakeTest() {
   document.getElementById('test-results').style.display = 'none';
-  selectTest(state.sessionTest.id);
+  // Re-show name input for anonymous students, start screen for logged-in
+  const user = fbUser();
+  const viaShareLink = !!getClassFromUrl();
+  if (!user || viaShareLink) {
+    document.getElementById('test-name-input').style.display = 'flex';
+    document.getElementById('student-name-input').value = '';
+    setTimeout(() => document.getElementById('student-name-input').focus(), 100);
+  } else {
+    showTestStart();
+  }
 }
 
 // ============================================================
@@ -1641,6 +1911,7 @@ async function acDisqualify() {
     student: state.sessionStudent + ' [ПОРУШЕННЯ]',
     userId: fbUser()?.uid || 'demo',
     testName: state.sessionTest.name, testId: state.sessionTest.id,
+    className: state.sessionClassName || '',
     pct: 0, correct: state.sessionCorrect, total, timeTaken, score: 0,
     date: new Date().toLocaleDateString('uk-UA')
   };
