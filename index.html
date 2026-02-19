@@ -3,9 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  	<link rel="icon" type="image/webp" href="logo.webp">
-    <link rel="shortcut icon" type="image/webp" href="logo.webp">
-    <link rel="apple-touch-icon" href="logo.webp">
 <title>TestMaster — Онлайн Тестування</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 
@@ -1047,6 +1044,39 @@ async function deleteTestFromFirebase(id) {
   }
 }
 
+
+async function deleteResultFromFirebase(id) {
+  try {
+    const { db, doc, deleteDoc } = fb();
+    await deleteDoc(doc(db, 'results', id));
+  } catch(e) { console.error('Delete result error:', e); }
+}
+
+async function deleteResult(resultId) {
+  if (!confirm('Видалити цей результат?')) return;
+  const idx = state.results.findIndex(r => r.id === resultId);
+  if (idx !== -1) {
+    if (state.useFirebase) await deleteResultFromFirebase(resultId);
+    state.results.splice(idx, 1);
+    saveLocal();
+    renderManage();
+    toast('Результат видалено', 'success');
+  }
+}
+
+async function deleteAllClassResults(testId, className) {
+  const label = className === '—' ? 'без класу' : `клас "${className}"`;
+  if (!confirm(`Видалити всі результати (${label})?`)) return;
+  const toDelete = state.results.filter(r => r.testId === testId && (r.className || '—') === className);
+  for (const r of toDelete) {
+    if (state.useFirebase && r.id) await deleteResultFromFirebase(r.id);
+  }
+  state.results = state.results.filter(r => !(r.testId === testId && (r.className || '—') === className));
+  saveLocal();
+  renderManage();
+  toast(`Видалено ${toDelete.length} результатів`, 'success');
+}
+
 async function saveResultToFirebase(result) {
   try {
     const { db, collection, addDoc, serverTimestamp } = fb();
@@ -1532,7 +1562,7 @@ function renderManage() {
   // Group: testId → className → [results]
   const grouped = {};
   myResults.forEach(r => {
-    if (!grouped[r.testId]) grouped[r.testId] = { name: r.testName, classes: {} };
+    if (!grouped[r.testId]) grouped[r.testId] = { id: r.testId, name: r.testName, classes: {} };
     const cls = r.className || '—';
     if (!grouped[r.testId].classes[cls]) grouped[r.testId].classes[cls] = [];
     grouped[r.testId].classes[cls].push(r);
@@ -1556,6 +1586,7 @@ function renderManage() {
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;">🏫 ${className}</span>
               <span style="font-size:13px;color:var(--muted);">${results.length} учнів</span>
+              <button class="btn btn-danger btn-sm" onclick="deleteAllClassResults('${testGroup.id}','${className}')" title="Видалити всі результати класу">🗑 Видалити всі</button>
             </div>
             <div style="display:flex;gap:16px;flex-wrap:wrap;">
               <div style="text-align:center;">
@@ -1576,6 +1607,7 @@ function renderManage() {
                 <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Правильних</th>
                 <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Час</th>
                 <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Дата</th>
+                <th style="padding:8px 12px;"></th>
               </tr></thead>
               <tbody>`;
 
@@ -1593,6 +1625,9 @@ function renderManage() {
           <td style="padding:8px 12px;">${r.correct}/${r.total}</td>
           <td style="padding:8px 12px;color:var(--muted);">${r.timeTaken}с</td>
           <td style="padding:8px 12px;color:var(--muted);">${r.date}</td>
+          <td style="padding:4px 8px;" onclick="event.stopPropagation()">
+            <button class="btn btn-danger btn-sm" onclick="deleteResult('${r.id}')" title="Видалити">🗑</button>
+          </td>
         </tr>`;
       });
 
