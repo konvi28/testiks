@@ -431,6 +431,24 @@
     .nav-tab { padding: 8px 12px; font-size: 13px; }
   }
   .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  /* Image upload in editor */
+  .img-upload-area {
+    border: 2px dashed var(--border); border-radius: 10px;
+    padding: 16px; text-align: center; cursor: pointer;
+    transition: all 0.2s; margin-bottom: 12px;
+    background: var(--bg);
+  }
+  .img-upload-area:hover { border-color: var(--accent); background: rgba(124,58,237,0.04); }
+  .img-upload-area.has-image { border-style: solid; border-color: var(--success); padding: 8px; }
+  .img-preview { max-width: 100%; max-height: 180px; border-radius: 8px; display: block; margin: 0 auto; }
+  /* Image in question during test */
+  .question-image {
+    width: 100%; max-height: 280px; object-fit: contain;
+    border-radius: 10px; margin-bottom: 16px;
+    border: 1px solid var(--border);
+  }
+
   /* LIGHT THEME */
   body.light {
     --bg: #f0f2f8;
@@ -689,6 +707,15 @@
           <div class="form-group">
             <label class="form-label">Текст питання *</label>
             <textarea class="textarea" id="q-text" placeholder="Введіть текст питання..."></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">🖼 Зображення до питання <span style="color:var(--muted);font-weight:400;">(необов'язково)</span></label>
+            <input class="input" id="q-img-url" placeholder="Вставте пряме посилання на зображення (https://...)" oninput="previewImageUrl(this.value)" />
+            <div style="margin-top:8px;" id="img-preview-wrap" style="display:none;">
+              <img id="img-preview" class="img-preview" style="display:none;max-height:160px;border-radius:8px;border:1px solid var(--border);" alt="preview" />
+              <div id="img-preview-error" style="font-size:12px;color:var(--danger);display:none;">⚠️ Не вдалося завантажити зображення — перевірте посилання</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px;">💡 Завантажте фото на <a href="https://imgur.com" target="_blank" style="color:var(--accent2);">imgur.com</a> або Google Drive і вставте пряме посилання</div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div class="form-group">
@@ -1336,7 +1363,7 @@ function renderQuestionList() {
     div.innerHTML = `
       <div class="question-item-header">
         <span class="question-num">#${i+1}</span>
-        <span class="question-text">${q.text}</span>
+        <span class="question-text">${q.text}${q.imageUrl ? ' <span style="font-size:11px;color:var(--accent2);">🖼</span>' : ''}</span>
         <div class="question-actions">
           <button class="btn btn-secondary btn-sm" onclick="editQuestion(${i})">✏️</button>
           <button class="btn btn-danger btn-sm" onclick="deleteQuestion(${i})">🗑</button>
@@ -1389,6 +1416,38 @@ function toggleCorrect(btn) {
   btn.classList.toggle('checked');
 }
 
+
+// ============================================================
+// IMAGE UPLOAD (URL-based)
+// ============================================================
+window.previewImageUrl = function(url) {
+  const img = document.getElementById('img-preview');
+  const errEl = document.getElementById('img-preview-error');
+  if (!url) {
+    img.style.display = 'none';
+    if (errEl) errEl.style.display = 'none';
+    return;
+  }
+  img.onload = () => { img.style.display = 'block'; if (errEl) errEl.style.display = 'none'; };
+  img.onerror = () => { img.style.display = 'none'; if (errEl) errEl.style.display = 'block'; };
+  img.src = url;
+}
+
+function clearImageEditor() {
+  const urlInput = document.getElementById('q-img-url');
+  const img = document.getElementById('img-preview');
+  const errEl = document.getElementById('img-preview-error');
+  if (urlInput) urlInput.value = '';
+  if (img) { img.src = ''; img.style.display = 'none'; }
+  if (errEl) errEl.style.display = 'none';
+}
+
+function loadImageInEditor(url) {
+  const urlInput = document.getElementById('q-img-url');
+  if (urlInput) urlInput.value = url || '';
+  previewImageUrl(url || '');
+}
+
 async function saveQuestion() {
   const test = state.tests.find(t => t.id === state.currentTestId);
   if (!test) { toast('Спочатку оберіть тест!', 'error'); return; }
@@ -1397,7 +1456,8 @@ async function saveQuestion() {
   const time = parseInt(document.getElementById('q-time').value) || 30;
   if (!text) { toast('Введіть текст питання!', 'error'); return; }
 
-  const q = { id: 'q' + Date.now(), text, type, time, options: [], correct: [], answer: '' };
+  const qId = 'q' + Date.now();
+  const q = { id: qId, text, type, time, options: [], correct: [], answer: '', imageUrl: '' };
 
   if (type === 'text') {
     q.answer = (document.getElementById('text-correct')?.value || '').trim().toLowerCase();
@@ -1413,6 +1473,9 @@ async function saveQuestion() {
     if (!q.options.length) { toast('Додайте хоча б один варіант!', 'error'); return; }
     if (!q.correct.length) { toast('Позначте правильну відповідь!', 'error'); return; }
   }
+
+  // Save image URL
+  q.imageUrl = (document.getElementById('q-img-url')?.value || '').trim();
 
   if (state.editingQIdx !== null) {
     q.id = test.questions[state.editingQIdx].id;
@@ -1445,6 +1508,8 @@ function editQuestion(idx) {
     document.getElementById('options-list').innerHTML = '';
     q.options.forEach((opt, i) => addOption(opt, q.correct.includes(i)));
   }
+  // Load existing image
+  loadImageInEditor(q.imageUrl || '');
   renderQuestionList();
   document.querySelector('.editor-card')?.scrollIntoView({ behavior: 'smooth' });
 }
@@ -1465,6 +1530,7 @@ function clearEditor() {
   document.getElementById('q-text').value = '';
   document.getElementById('q-type').value = 'single';
   document.getElementById('q-time').value = '30';
+  clearImageEditor();
   renderOptionsEditor();
   renderQuestionList();
 }
@@ -1828,6 +1894,20 @@ function showQuestion() {
   document.getElementById('q-score-text').textContent = `${state.sessionScore} балів`;
   document.getElementById('progress-fill').style.width = (qi / test.questions.length * 100) + '%';
   document.getElementById('current-q-text').textContent = q.text;
+  // Show question image if present
+  let imgEl = document.getElementById('question-img-display');
+  if (!imgEl) {
+    imgEl = document.createElement('img');
+    imgEl.id = 'question-img-display';
+    imgEl.className = 'question-image';
+    document.getElementById('current-q-text').after(imgEl);
+  }
+  if (q.imageUrl) {
+    imgEl.src = q.imageUrl;
+    imgEl.style.display = 'block';
+  } else {
+    imgEl.style.display = 'none';
+  }
   document.getElementById('q-feedback').textContent = '';
   document.getElementById('next-btn').style.display = 'none';
 
