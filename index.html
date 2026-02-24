@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TestMaster — Онлайн Тестування</title>
+<title>.TestMaster — Онлайн Тестування</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- ======= FIREBASE CONFIG — ЗАМІНИТИ НА СВОЇ ДАНІ ======= -->
@@ -37,6 +37,22 @@
   window._fb = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile,
     GoogleAuthProvider, signInWithPopup,
     collection, doc, setDoc, getDoc, getDocs, addDoc, deleteDoc, query, orderBy, serverTimestamp, onSnapshot };
+
+  // Google login — defined here inside the module so GoogleAuthProvider is guaranteed available
+  window.doGoogleLogin = async function() {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (e) {
+      if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+      const msg = e.code === 'auth/popup-blocked'
+        ? 'Браузер заблокував popup. Дозвольте спливаючі вікна для цього сайту.'
+        : e.code === 'auth/unauthorized-domain'
+        ? 'Цей домен не авторизований. Додайте його в Firebase → Authentication → Authorized domains.'
+        : 'Помилка Google входу: ' + e.message;
+      alert(msg);
+    }
+  };
 
   // Auth state listener
   onAuthStateChanged(auth, (user) => {
@@ -1188,22 +1204,6 @@ async function save() {
 // ============================================================
 // AUTH
 // ============================================================
-async function doGoogleLogin() {
-  try {
-    const { auth, GoogleAuthProvider, signInWithPopup } = fb();
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-    // onAuthStateChanged handles the rest
-  } catch (e) {
-    if (e.code !== 'auth/popup-closed-by-user') {
-      const msg = e.code === 'auth/popup-blocked'
-        ? 'Браузер заблокував спливаюче вікно. Дозвольте popup для цього сайту.'
-        : 'Помилка входу через Google: ' + e.message;
-      toast(msg, 'error');
-    }
-  }
-}
-
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-pass').value;
