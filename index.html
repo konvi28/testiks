@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  	<link rel="icon" type="image/webp" href="logo.webp">
+	<link rel="icon" type="image/webp" href="logo.webp">
     <link rel="shortcut icon" type="image/webp" href="logo.webp">
     <link rel="apple-touch-icon" href="logo.webp">
 <title>TestMaster — Онлайн Тестування</title>
@@ -546,7 +546,8 @@
 
     /* Results table — горизонтальний скрол */
     .manage-body [style*="overflow-x:auto"] { overflow-x: auto; }
-    .results-table { min-width: 480px; }
+    .results-table { min-width: 0; width: 100%; }
+    .col-hide-mobile { display: none; }
 
     /* Question item actions */
     .question-item-header { flex-wrap: wrap; }
@@ -573,7 +574,7 @@
     #admin-test-select { min-width: unset !important; width: 100% !important; }
 
     /* ── MANAGE PAGE (вкладка "Тести") ── */
-    .manage-body { padding: 12px; }
+    .manage-body { padding: 10px 10px 80px; }
     #manage-create-btn { width: 100%; justify-content: center; margin-top: 8px; }
 
     /* Картки тестів — компактні кнопки */
@@ -953,7 +954,7 @@
           <div class="page-title">📋 Управління тестами</div>
           <div class="page-sub">Всі тести системи</div>
         </div>
-        <button class="btn btn-cyan" id="manage-create-btn" onclick="openCreateTest()">+ Створити тест</button>
+        <button class="btn btn-cyan" id="manage-create-btn" onclick="openCreateTest()" style="width:100%;justify-content:center;">+ Створити тест</button>
       </div>
     </div>
     <div class="tests-grid" id="tests-grid">
@@ -1808,11 +1809,11 @@ function renderManage() {
       div.innerHTML = `
         <div class="tmcard-title">${t.name}${ownerTag}</div>
         <div class="tmcard-meta">${t.desc||'Без опису'} · ${(t.questions||[]).length} питань · ≈${totalTime}с</div>
-        <div class="tmcard-actions">
-          <button class="btn btn-secondary btn-sm tmcard-btn" onclick="editTestInAdmin('${t.id}')">✏️ Редаг.</button>
-          <button class="btn btn-cyan btn-sm tmcard-btn" onclick="goTest('${t.id}')">🎯 Пройти</button>
-          <button class="btn btn-primary btn-sm tmcard-btn" onclick="openShareModal('${t.id}')">🔗 Поділ.</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteTest('${t.id}')">🗑</button>
+        <div class="tmcard-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <button class="btn btn-secondary btn-sm" style="justify-content:center;" onclick="editTestInAdmin('${t.id}')">✏️ Редаг.</button>
+          <button class="btn btn-cyan btn-sm" style="justify-content:center;" onclick="goTest('${t.id}')">🎯 Пройти</button>
+          <button class="btn btn-primary btn-sm" style="justify-content:center;" onclick="openShareModal('${t.id}')">🔗 Поділ.</button>
+          <button class="btn btn-danger btn-sm" style="justify-content:center;" onclick="deleteTest('${t.id}')">🗑 Видалити</button>
         </div>`;
       grid.appendChild(div);
     });
@@ -1877,12 +1878,12 @@ function renderManage() {
           <div class="results-table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
             <table class="results-table" style="width:100%;border-collapse:collapse;font-size:13px;">
               <thead><tr style="border-bottom:1px solid var(--border);">
-                <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Учень</th>
-                <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Результат</th>
-                <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Правильних</th>
-                <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Час</th>
-                <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Дата</th>
-                <th style="padding:8px 12px;"></th>
+                <th style="padding:6px 8px;text-align:left;color:var(--muted);font-weight:600;">Учень</th>
+                <th style="padding:6px 8px;text-align:left;color:var(--muted);font-weight:600;">Рез.</th>
+                <th class="col-hide-mobile" style="padding:6px 8px;text-align:left;color:var(--muted);font-weight:600;">Прав.</th>
+                <th class="col-hide-mobile" style="padding:6px 8px;text-align:left;color:var(--muted);font-weight:600;">Час</th>
+                <th style="padding:6px 8px;text-align:left;color:var(--muted);font-weight:600;">Дата</th>
+                <th style="padding:4px 6px;"></th>
               </tr></thead>
               <tbody>`;
 
@@ -1895,12 +1896,12 @@ function renderManage() {
         html += `<tr style="border-bottom:1px solid var(--border);${cursor}transition:background 0.15s;"
           ${hoverTitle}
           ${hasAnswers ? `onclick="showStudentAnswers(${rIdx})" onmouseenter="this.style.background='rgba(124,58,237,0.07)'" onmouseleave="this.style.background=''"` : ''}>
-          <td style="padding:8px 12px;font-weight:500;">${r.student} ${hasAnswers ? '<span style="font-size:10px;color:var(--accent);font-weight:700;margin-left:4px;">👁</span>' : ''}</td>
-          <td style="padding:8px 12px;font-weight:700;color:${c};">${r.pct}%</td>
-          <td style="padding:8px 12px;">${r.correct}/${r.total}</td>
-          <td style="padding:8px 12px;color:var(--muted);">${r.timeTaken}с</td>
-          <td style="padding:8px 12px;color:var(--muted);">${r.date}</td>
-          <td style="padding:4px 8px;" onclick="event.stopPropagation()">
+          <td style="padding:6px 8px;font-weight:500;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.student} ${hasAnswers ? '<span style="font-size:10px;color:var(--accent);font-weight:700;margin-left:4px;">👁</span>' : ''}</td>
+          <td style="padding:6px 8px;font-weight:700;color:${c};">${r.pct}%</td>
+          <td class="col-hide-mobile" style="padding:6px 8px;">${r.correct}/${r.total}</td>
+          <td class="col-hide-mobile" style="padding:6px 8px;color:var(--muted);">${r.timeTaken}с</td>
+          <td style="padding:6px 8px;color:var(--muted);white-space:nowrap;">${r.date}</td>
+          <td style="padding:4px 6px;" onclick="event.stopPropagation()">
             <button class="btn btn-danger btn-sm" onclick="deleteResult('${r.id}')" title="Видалити">🗑</button>
           </td>
         </tr>`;
