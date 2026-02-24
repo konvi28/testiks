@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link rel="icon" type="image/webp" href="logo.webp">
-    <link rel="shortcut icon" type="image/webp" href="logo.webp">
-    <link rel="apple-touch-icon" href="logo.webp">
+<link rel="icon" type="image/webp" href="logo.webp">
+<link rel="shortcut icon" type="image/webp" href="logo.webp">
+<link rel="apple-touch-icon" href="logo.webp">
 <title>TestMaster — Онлайн Тестування</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 
@@ -570,6 +570,45 @@
     .logout-icon { display: inline !important; }
     #logout-btn { padding: 6px 10px; }
 
+    /* ── MANAGE PAGE (вкладка "Тести") ── */
+    .manage-body { padding: 12px; }
+    #manage-create-btn { width: 100%; justify-content: center; margin-top: 8px; }
+
+    /* Картки тестів — компактні кнопки */
+    .tmcard-actions { gap: 6px; }
+    .tmcard-btn { flex: 1; justify-content: center; min-width: 0; }
+    .tmcard-title { font-size: 14px; }
+    .tmcard-meta { font-size: 12px; }
+    .test-manage-card { padding: 14px 12px; }
+
+    /* ── ТАБЛИЦЯ РЕЗУЛЬТАТІВ ── */
+    .results-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
+    .results-table { min-width: 420px; font-size: 12px; }
+    .results-table th,
+    .results-table td { padding: 6px 8px !important; }
+    /* Статистика класу — стек на мобілі */
+    .class-stats-row { flex-direction: column !important; align-items: flex-start !important; }
+    .class-header-row { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+
+    /* ── TEST SELECTOR (вибір тесту для проходження) ── */
+    #test-selector > div { padding: 16px 12px !important; }
+    .test-cards-grid { grid-template-columns: 1fr; gap: 12px; }
+    .test-card-item { padding: 14px 12px; }
+    .test-card-title { font-size: 14px; }
+
+    /* ── РЕЗУЛЬТАТИ ТЕСТУ ── */
+    .result-stats { flex-wrap: wrap; }
+    .result-stat { padding: 10px 14px; }
+    .result-stat-val { font-size: 18px; }
+
+    /* ── ПИТАННЯ (проходження тесту) ── */
+    #test-question { padding: 0 12px; }
+    .question-card { padding: 14px 12px; border-radius: 12px; }
+    .q-text { font-size: 15px; }
+    .option-btn { padding: 11px 12px; font-size: 13px; gap: 10px; }
+    .opt-letter { width: 28px; height: 28px; font-size: 10px; }
+    .timer-display { font-size: 14px; padding: 6px 12px; }
+
     /* Auth page */
     .auth-wrap { padding: 24px 16px; align-items: flex-start; padding-top: 40px; }
     .card { padding: 20px 16px; }
@@ -912,7 +951,7 @@
           <div class="page-title">📋 Управління тестами</div>
           <div class="page-sub">Всі тести системи</div>
         </div>
-        <button class="btn btn-cyan" onclick="openCreateTest()">+ Створити тест</button>
+        <button class="btn btn-cyan" id="manage-create-btn" onclick="openCreateTest()">+ Створити тест</button>
       </div>
     </div>
     <div class="tests-grid" id="tests-grid">
@@ -928,7 +967,7 @@
 <!-- ============ TEST PAGE ============ -->
 <div class="page" id="page-test">
   <div id="test-selector">
-    <div style="max-width:800px;margin:0 auto;padding:32px 20px;">
+    <div style="max-width:800px;margin:0 auto;padding:20px 16px;">
       <div class="page-title">🎯 Пройти тест</div>
       <p style="color:var(--muted);font-size:14px;margin-top:4px;margin-bottom:20px;">Обери тест для проходження</p>
       <div class="test-cards-grid" id="test-cards"></div>
@@ -1768,9 +1807,9 @@ function renderManage() {
         <div class="tmcard-title">${t.name}${ownerTag}</div>
         <div class="tmcard-meta">${t.desc||'Без опису'} · ${(t.questions||[]).length} питань · ≈${totalTime}с</div>
         <div class="tmcard-actions">
-          <button class="btn btn-secondary btn-sm" onclick="editTestInAdmin('${t.id}')">✏️ Редагувати</button>
-          <button class="btn btn-cyan btn-sm" onclick="goTest('${t.id}')">🎯 Пройти</button>
-          <button class="btn btn-primary btn-sm" onclick="openShareModal('${t.id}')">🔗 Поділитись</button>
+          <button class="btn btn-secondary btn-sm tmcard-btn" onclick="editTestInAdmin('${t.id}')">✏️ Редаг.</button>
+          <button class="btn btn-cyan btn-sm tmcard-btn" onclick="goTest('${t.id}')">🎯 Пройти</button>
+          <button class="btn btn-primary btn-sm tmcard-btn" onclick="openShareModal('${t.id}')">🔗 Поділ.</button>
           <button class="btn btn-danger btn-sm" onclick="deleteTest('${t.id}')">🗑</button>
         </div>`;
       grid.appendChild(div);
@@ -1816,25 +1855,25 @@ function renderManage() {
 
       html += `
         <div style="margin-bottom:20px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-            <div style="display:flex;align-items:center;gap:10px;">
+          <div class="class-header-row" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+            <div class="class-stats-row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
               <span style="background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;">🏫 ${className}</span>
               <span style="font-size:13px;color:var(--muted);">${results.length} учнів</span>
               <button class="btn btn-danger btn-sm" onclick="deleteAllClassResults('${testGroup.id}','${className}')" title="Видалити всі результати класу">🗑 Видалити всі</button>
             </div>
             <div style="display:flex;gap:16px;flex-wrap:wrap;">
               <div style="text-align:center;">
-                <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:800;color:${avgColor};">${avg}%</div>
+                <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:800;color:${avgColor};">${avg}%</div>
                 <div style="font-size:11px;color:var(--muted);">Середній бал</div>
               </div>
               <div style="text-align:center;">
-                <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:800;color:var(--success);">${passed}/${results.length}</div>
+                <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:800;color:var(--success);">${passed}/${results.length}</div>
                 <div style="font-size:11px;color:var(--muted);">Склали (≥60%)</div>
               </div>
             </div>
           </div>
-          <div style="overflow-x:auto;">
-            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <div class="results-table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+            <table class="results-table" style="width:100%;border-collapse:collapse;font-size:13px;">
               <thead><tr style="border-bottom:1px solid var(--border);">
                 <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Учень</th>
                 <th style="padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;">Результат</th>
