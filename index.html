@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link rel="icon" type="image/webp" href="logo.webp">
+		<link rel="icon" type="image/webp" href="logo.webp">
     <link rel="shortcut icon" type="image/webp" href="logo.webp">
     <link rel="apple-touch-icon" href="logo.webp">
 <title>TestMaster — Онлайн Тестування</title>
@@ -913,12 +913,32 @@
           </div>
           <div class="form-group">
             <label class="form-label">🖼 Зображення до питання <span style="color:var(--muted);font-weight:400;">(необов'язково)</span></label>
-            <input class="input" id="q-img-url" placeholder="Вставте пряме посилання на зображення (https://...)" oninput="previewImageUrl(this.value)" />
-            <div style="margin-top:8px;" id="img-preview-wrap" style="display:none;">
-              <img id="img-preview" class="img-preview" style="display:none;max-height:160px;border-radius:8px;border:1px solid var(--border);" alt="preview" />
-              <div id="img-preview-error" style="font-size:12px;color:var(--danger);display:none;">⚠️ Не вдалося завантажити зображення — перевірте посилання</div>
+
+            <!-- Upload area -->
+            <div class="img-upload-area" id="img-drop-zone" onclick="document.getElementById('img-file-input').click()">
+              <div id="img-upload-placeholder">
+                <div style="font-size:28px;margin-bottom:6px;">📷</div>
+                <div style="font-size:13px;font-weight:600;color:var(--text);">Натисни або перетягни фото</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:4px)">JPG, PNG, GIF, WEBP до 10MB</div>
+              </div>
+              <div id="img-upload-progress" style="display:none;">
+                <div class="spinner" style="margin:0 auto 8px;border-top-color:var(--accent);"></div>
+                <div style="font-size:13px;color:var(--muted);">Завантаження...</div>
+              </div>
             </div>
-            <div style="font-size:11px;color:var(--muted);margin-top:6px;">💡 Завантажте фото на <a href="https://imgur.com" target="_blank" style="color:var(--accent2);">imgur.com</a> або Google Drive і вставте пряме посилання</div>
+            <input type="file" id="img-file-input" accept="image/*" style="display:none;" onchange="uploadImageCloudinary(this)" />
+
+            <!-- Preview + URL -->
+            <div id="img-preview-wrap" style="margin-top:8px;">
+              <img id="img-preview" class="img-preview" style="display:none;max-height:160px;border-radius:8px;border:1px solid var(--border);width:100%;object-fit:contain;" alt="preview" />
+              <div id="img-preview-error" style="font-size:12px;color:var(--danger);display:none;margin-top:4px;">⚠️ Не вдалося завантажити</div>
+            </div>
+
+            <!-- URL input (fallback) -->
+            <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+              <input class="input" id="q-img-url" placeholder="або вставте URL зображення вручну..." oninput="previewImageUrl(this.value)" style="flex:1;" />
+              <button class="btn btn-danger btn-sm" id="img-clear-btn" onclick="clearImageEditor()" style="display:none;flex-shrink:0;" title="Видалити зображення">✕</button>
+            </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div class="form-group">
@@ -1628,33 +1648,122 @@ function toggleCorrect(btn) {
 
 
 // ============================================================
-// IMAGE UPLOAD (URL-based)
+// IMAGE UPLOAD — Cloudinary
 // ============================================================
+const CLOUDINARY_CLOUD = 'dedccbn3m';
+const CLOUDINARY_PRESET = 'konvi-ggg-12';
+
+window.uploadImageCloudinary = async function(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // Validate size (10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    toast('Файл завеликий! Максимум 10MB', 'error');
+    input.value = '';
+    return;
+  }
+
+  // Show progress
+  const placeholder = document.getElementById('img-upload-placeholder');
+  const progress = document.getElementById('img-upload-progress');
+  const dropZone = document.getElementById('img-drop-zone');
+  if (placeholder) placeholder.style.display = 'none';
+  if (progress) progress.style.display = 'block';
+  dropZone.style.pointerEvents = 'none';
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_PRESET);
+
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!res.ok) throw new Error('Upload failed: ' + res.status);
+    const data = await res.json();
+
+    // Set URL and show preview
+    const url = data.secure_url;
+    document.getElementById('q-img-url').value = url;
+    previewImageUrl(url);
+    toast('Зображення завантажено ✓', 'success');
+
+  } catch(e) {
+    toast('Помилка завантаження: ' + e.message, 'error');
+    if (placeholder) placeholder.style.display = 'block';
+  } finally {
+    if (progress) progress.style.display = 'none';
+    dropZone.style.pointerEvents = '';
+    input.value = '';
+  }
+};
+
+// Drag & drop support
+document.addEventListener('DOMContentLoaded', () => {
+  const zone = document.getElementById('img-drop-zone');
+  if (!zone) return;
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = 'var(--accent)'; });
+  zone.addEventListener('dragleave', () => { zone.style.borderColor = ''; });
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.style.borderColor = '';
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      const input = document.getElementById('img-file-input');
+      input.files = dt.files;
+      uploadImageCloudinary(input);
+    }
+  });
+});
+
 window.previewImageUrl = function(url) {
   const img = document.getElementById('img-preview');
   const errEl = document.getElementById('img-preview-error');
+  const clearBtn = document.getElementById('img-clear-btn');
+  const dropZone = document.getElementById('img-drop-zone');
   if (!url) {
-    img.style.display = 'none';
+    if (img) img.style.display = 'none';
     if (errEl) errEl.style.display = 'none';
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (dropZone) dropZone.style.display = 'block';
     return;
   }
-  img.onload = () => { img.style.display = 'block'; if (errEl) errEl.style.display = 'none'; };
-  img.onerror = () => { img.style.display = 'none'; if (errEl) errEl.style.display = 'block'; };
+  img.onload = () => {
+    img.style.display = 'block';
+    if (errEl) errEl.style.display = 'none';
+    if (clearBtn) clearBtn.style.display = '';
+    if (dropZone) dropZone.style.display = 'none';
+  };
+  img.onerror = () => {
+    img.style.display = 'none';
+    if (errEl) errEl.style.display = 'block';
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (dropZone) dropZone.style.display = 'block';
+  };
   img.src = url;
-}
+};
 
 function clearImageEditor() {
-  const urlInput = document.getElementById('q-img-url');
+  document.getElementById('q-img-url').value = '';
   const img = document.getElementById('img-preview');
   const errEl = document.getElementById('img-preview-error');
-  if (urlInput) urlInput.value = '';
+  const clearBtn = document.getElementById('img-clear-btn');
+  const dropZone = document.getElementById('img-drop-zone');
+  const placeholder = document.getElementById('img-upload-placeholder');
   if (img) { img.src = ''; img.style.display = 'none'; }
   if (errEl) errEl.style.display = 'none';
+  if (clearBtn) clearBtn.style.display = 'none';
+  if (dropZone) dropZone.style.display = 'block';
+  if (placeholder) placeholder.style.display = 'block';
 }
 
 function loadImageInEditor(url) {
-  const urlInput = document.getElementById('q-img-url');
-  if (urlInput) urlInput.value = url || '';
+  document.getElementById('q-img-url').value = url || '';
   previewImageUrl(url || '');
 }
 
