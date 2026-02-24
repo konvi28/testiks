@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>.TestMaster — Онлайн Тестування</title>
+<title>TestMaster — Онлайн Тестування</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- ======= FIREBASE CONFIG — ЗАМІНИТИ НА СВОЇ ДАНІ ======= -->
@@ -12,7 +12,7 @@
   import {
     getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
     signOut, onAuthStateChanged, updateProfile,
-    GoogleAuthProvider, signInWithPopup
+    GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     getFirestore, collection, doc, setDoc, getDoc, getDocs,
@@ -38,21 +38,29 @@
     GoogleAuthProvider, signInWithPopup,
     collection, doc, setDoc, getDoc, getDocs, addDoc, deleteDoc, query, orderBy, serverTimestamp, onSnapshot };
 
-  // Google login — defined here inside the module so GoogleAuthProvider is guaranteed available
+  // Google login via redirect (works on all servers/browsers without popup issues)
   window.doGoogleLogin = async function() {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await signInWithRedirect(auth, provider);
     } catch (e) {
-      if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
-      const msg = e.code === 'auth/popup-blocked'
-        ? 'Браузер заблокував popup. Дозвольте спливаючі вікна для цього сайту.'
-        : e.code === 'auth/unauthorized-domain'
+      const msg = e.code === 'auth/unauthorized-domain'
         ? 'Цей домен не авторизований. Додайте його в Firebase → Authentication → Authorized domains.'
         : 'Помилка Google входу: ' + e.message;
       alert(msg);
     }
   };
+
+  // Handle redirect result on page load
+  getRedirectResult(auth).then((result) => {
+    if (result?.user) {
+      // user is set, onAuthStateChanged will fire automatically
+    }
+  }).catch((e) => {
+    if (e.code !== 'auth/null-user') {
+      console.error('Redirect result error:', e.message);
+    }
+  });
 
   // Auth state listener
   onAuthStateChanged(auth, (user) => {
@@ -67,9 +75,9 @@
       document.getElementById('nav-tab-manage').style.display = '';
       if (!window._appReady) {
         window._appReady = true;
-        loadFromFirebase().then(() => {
-          showPage('home');
-          checkUrlParams();
+        window.loadFromFirebase().then(() => {
+          window.showPage('home');
+          window.checkUrlParams();
         });
       }
     } else {
@@ -81,7 +89,7 @@
         document.querySelectorAll('.page').forEach(pg => pg.classList.remove('active'));
         document.getElementById('page-test').classList.add('active');
         document.getElementById('main-nav').style.display = 'none';
-        loadFromFirebase().then(() => checkUrlParams());
+        window.loadFromFirebase().then(() => window.checkUrlParams());
         return;
       }
       window._appReady = false;
@@ -1052,7 +1060,7 @@ function getClassFromUrl() {
   return new URLSearchParams(window.location.search).get('class') || '';
 }
 
-async function loadFromFirebase() {
+window.loadFromFirebase = async function loadFromFirebase() {
   try {
     const { db, collection, getDocs } = fb();
 
@@ -1306,7 +1314,7 @@ function switchToLogin() {
 // ============================================================
 // NAVIGATION
 // ============================================================
-function showPage(name) {
+window.showPage = function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + name)?.classList.add('active');
@@ -1362,7 +1370,6 @@ function updateHomeStats() {
     : state.results;
   document.getElementById('stat-results').textContent = myResults.length;
 
-  const user = fbUser();
   if (user?.displayName) {
     document.getElementById('home-welcome').textContent = `Привіт, ${user.displayName}! Готовий перевірити свої знання?`;
   }
@@ -1810,7 +1817,7 @@ function getClassFromUrl() {
   return decodeURIComponent(new URLSearchParams(window.location.search).get('class') || '');
 }
 
-function checkUrlParams() {
+window.checkUrlParams = function checkUrlParams() {
   const params = new URLSearchParams(window.location.search);
   const testId = params.get('test');
   if (!testId) return;
