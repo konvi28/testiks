@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/webp" href="logo.webp">
-<link rel="shortcut icon" type="image/webp" href="logo.webp">
-<link rel="apple-touch-icon" href="logo.webp">
+  	<link rel="icon" type="image/webp" href="logo.webp">
+    <link rel="shortcut icon" type="image/webp" href="logo.webp">
+    <link rel="apple-touch-icon" href="logo.webp">
 <title>TestMaster — Онлайн Тестування</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 
@@ -331,7 +331,7 @@
   /* MANAGE */
   #page-manage { padding: 0; }
   .manage-body { padding: 32px; max-width: 960px; margin: 0 auto; flex: 1; }
-  .tests-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 20px; }
+  .tests-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 16px; margin-top: 20px; }
   .test-manage-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; transition: all 0.2s; }
   .test-manage-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
   .tmcard-title { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
@@ -341,7 +341,7 @@
   /* TEST PAGE */
   #page-test { padding: 0; }
   #test-selector { padding: 32px 20px; max-width: 800px; margin: 0 auto; width: 100%; }
-  .test-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 20px; }
+  .test-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 16px; margin-top: 20px; }
   .test-card-item {
     background: var(--card); border: 1px solid var(--border); border-radius: 14px;
     padding: 20px; cursor: pointer; transition: all 0.2s;
@@ -546,7 +546,7 @@
 
     /* Results table — горизонтальний скрол */
     .manage-body [style*="overflow-x:auto"] { overflow-x: auto; }
-    table { min-width: 480px; }
+    .results-table { min-width: 480px; }
 
     /* Question item actions */
     .question-item-header { flex-wrap: wrap; }
@@ -569,6 +569,8 @@
     .logout-text { display: none; }
     .logout-icon { display: inline !important; }
     #logout-btn { padding: 6px 10px; }
+    /* Force select full-width on mobile */
+    #admin-test-select { min-width: unset !important; width: 100% !important; }
 
     /* ── MANAGE PAGE (вкладка "Тести") ── */
     .manage-body { padding: 12px; }
@@ -583,7 +585,7 @@
 
     /* ── ТАБЛИЦЯ РЕЗУЛЬТАТІВ ── */
     .results-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
-    .results-table { min-width: 420px; font-size: 12px; }
+    .results-table { font-size: 12px; }
     .results-table th,
     .results-table td { padding: 6px 8px !important; }
     /* Статистика класу — стек на мобілі */
@@ -887,7 +889,7 @@
           <div class="page-sub">Редактор питань та тестів</div>
         </div>
         <div class="admin-header-controls" style="display:flex;gap:10px;flex-wrap:wrap;">
-          <select class="select" id="admin-test-select" style="width:auto;min-width:180px;" onchange="loadTestInAdmin()">
+          <select class="select" id="admin-test-select" style="width:auto;min-width:180px;" onchange="loadTestInAdmin()" class="admin-test-select">
             <option value="">— Обери тест —</option>
           </select>
           <button class="btn btn-cyan" onclick="openCreateTest()">+ Новий тест</button>
