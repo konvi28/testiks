@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TestMaster — Онлайн Тестування</title>
+<title>.TestMaster — Онлайн Тестування</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- ======= FIREBASE CONFIG — ЗАМІНИТИ НА СВОЇ ДАНІ ======= -->
@@ -38,27 +38,37 @@
     GoogleAuthProvider, signInWithPopup,
     collection, doc, setDoc, getDoc, getDocs, addDoc, deleteDoc, query, orderBy, serverTimestamp, onSnapshot };
 
-  // Google login via redirect (works on all servers/browsers without popup issues)
+  // Google login — спочатку popup, якщо заблокований — redirect
   window.doGoogleLogin = async function() {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithRedirect(auth, provider);
+      await signInWithPopup(auth, provider);
     } catch (e) {
-      const msg = e.code === 'auth/unauthorized-domain'
-        ? 'Цей домен не авторизований. Додайте його в Firebase → Authentication → Authorized domains.'
-        : 'Помилка Google входу: ' + e.message;
-      alert(msg);
+      if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+        return; // користувач сам закрив — нічого не робимо
+      }
+      if (e.code === 'auth/popup-blocked') {
+        // Браузер заблокував popup — переходимо на redirect
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch (e2) {
+          alert('Помилка входу: ' + e2.message);
+        }
+        return;
+      }
+      if (e.code === 'auth/unauthorized-domain') {
+        alert('Домен не авторизований у Firebase.\nВідкрийте Firebase Console → Authentication → Settings → Authorized domains\nі додайте поточний домен: ' + location.hostname);
+        return;
+      }
+      alert('Помилка Google входу: ' + e.message);
     }
   };
 
-  // Handle redirect result on page load
-  getRedirectResult(auth).then((result) => {
-    if (result?.user) {
-      // user is set, onAuthStateChanged will fire automatically
-    }
-  }).catch((e) => {
-    if (e.code !== 'auth/null-user') {
-      console.error('Redirect result error:', e.message);
+  // Обробка результату після redirect (якщо був редирект)
+  getRedirectResult(auth).catch((e) => {
+    if (e.code && e.code !== 'auth/null-user' && e.code !== 'auth/no-current-user') {
+      console.warn('Redirect result error:', e.code, e.message);
     }
   });
 
