@@ -6,6 +6,9 @@
 		<link rel="icon" type="image/webp" href="logo.webp">
     <link rel="shortcut icon" type="image/webp" href="logo.webp">
     <link rel="apple-touch-icon" href="logo.webp">
+			<link rel="icon" type="image/webp" href="logo.webp">
+    <link rel="shortcut icon" type="image/webp" href="logo.webp">
+    <link rel="apple-touch-icon" href="logo.webp">
 <title>TestMaster — Онлайн Тестування</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 
@@ -2627,20 +2630,49 @@ async function acDisqualify() {
   saveLocal();
 }
 
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) acTrigger('Вкладка була згорнута або прихована.');
-});
-window.addEventListener('blur', () => {
-  acTrigger('Вікно браузера втратило фокус.');
-});
+// Захист від подвійного спрацювання: visibilitychange і blur можуть
+// спрацювати одночасно — використовуємо debounce і прапорець
+let _acLastTriggerTime = 0;
+let _acResizeTimer = null;
 let _initW = window.innerWidth, _initH = window.innerHeight;
+
+function acTriggerOnce(reason) {
+  const now = Date.now();
+  // Ігноруємо якщо попередній тригер був менше 1 секунди тому
+  if (now - _acLastTriggerTime < 1000) return;
+  _acLastTriggerTime = now;
+  acTrigger(reason);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) acTriggerOnce('Вкладка була згорнута або прихована.');
+});
+
+window.addEventListener('blur', () => {
+  // Пропускаємо якщо вкладка вжеихована (щоб не дублювати з visibilitychange)
+  if (document.hidden) return;
+  // Невелика затримка — ігноруємо миттєві blur (напр. клік на елемент сторінки)
+  setTimeout(() => {
+    if (!document.hidden && document.visibilityState === 'visible') {
+      acTriggerOnce('Вікно браузера втратило фокус.');
+    }
+  }, 200);
+});
+
 window.addEventListener('resize', () => {
-  const dw = Math.abs(window.innerWidth - _initW);
-  const dh = Math.abs(window.innerHeight - _initH);
-  if (dw > 50 || dh > 50) {
-    acTrigger('Розмір вікна було змінено.');
-    _initW = window.innerWidth; _initH = window.innerHeight;
-  }
+  // Debounce resize — чекаємо поки розмір стабілізується
+  clearTimeout(_acResizeTimer);
+  _acResizeTimer = setTimeout(() => {
+    const dw = Math.abs(window.innerWidth - _initW);
+    const dh = Math.abs(window.innerHeight - _initH);
+    // Ігноруємо зміну висоти на мобілі (поява клавіатури)
+    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+    if (dw > 150 || (!isMobile && dh > 150)) {
+      acTriggerOnce('Розмір вікна було змінено.');
+    }
+    _initW = window.innerWidth;
+    _initH = window.innerHeight;
+  }, 500);
 });
 
 // ============================================================
