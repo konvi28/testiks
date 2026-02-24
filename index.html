@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>.TestMaster — Онлайн Тестування</title>
+<title>TestMaster — Онлайн Тестування</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- ======= FIREBASE CONFIG — ЗАМІНИТИ НА СВОЇ ДАНІ ======= -->
@@ -466,12 +466,117 @@
   @keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
 
+  /* ===================== MOBILE ===================== */
   @media(max-width: 768px) {
+
+    /* NAV — бургер-стиль: лого + юзер зверху, вкладки знизу */
+    .nav {
+      padding: 12px 16px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .nav > div:first-child { flex: 1; }
+    .nav-right { gap: 8px; }
+    .nav-tabs {
+      order: 3;
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      gap: 4px;
+      padding-bottom: 2px;
+    }
+    .nav-tabs::-webkit-scrollbar { display: none; }
+    .nav-tab { padding: 7px 12px; font-size: 12px; white-space: nowrap; }
+    .nav-user span#nav-user-name { display: none; } /* ховаємо ім'я, залишаємо аватар */
+    .nav-user { padding: 6px 10px; }
+    .fb-status { display: none; } /* ховаємо статус Firebase на мобілі */
+
+    /* PAGES padding */
+    .admin-body, .manage-body { padding: 16px; }
+    #test-selector { padding: 16px; }
+    #test-start { padding: 32px 16px; }
+    #test-results { padding: 24px 16px; }
+
+    /* ADMIN grid — одна колонка */
     .admin-grid { grid-template-columns: 1fr; }
     .editor-card { position: static; }
-    .nav { padding: 14px 16px; flex-wrap: wrap; gap: 10px; }
-    .admin-body, .manage-body { padding: 16px; }
-    .nav-tab { padding: 8px 12px; font-size: 13px; }
+    .page-header > div { flex-direction: column; align-items: flex-start !important; }
+    .page-header select, .page-header .btn { width: 100%; }
+
+    /* TESTS grid — одна колонка */
+    .tests-grid { grid-template-columns: 1fr; }
+    .test-cards-grid { grid-template-columns: 1fr; }
+
+    /* TEST CARDS actions — переносимо кнопки */
+    .tmcard-actions { gap: 6px; }
+    .tmcard-actions .btn { flex: 1; justify-content: center; font-size: 12px; padding: 7px 8px; }
+
+    /* QUESTION card */
+    .question-card { padding: 18px 16px; }
+    .q-text { font-size: 16px; }
+    .option-btn { padding: 12px 14px; font-size: 14px; }
+
+    /* RESULT stats */
+    .result-stats { gap: 10px; }
+    .result-stat { padding: 12px 16px; flex: 1; min-width: 120px; }
+    .result-title { font-size: 20px; }
+
+    /* HOME hero */
+    .hero-title { font-size: clamp(26px, 8vw, 42px); letter-spacing: -1px; }
+    .hero-sub { font-size: 15px; }
+    .hero-stats { gap: 20px; margin-top: 36px; }
+    .hero-actions { flex-direction: column; align-items: stretch; }
+    .hero-actions .btn { justify-content: center; }
+
+    /* MODAL */
+    .modal { padding: 20px 16px; border-radius: 16px; }
+    .modal-actions { flex-wrap: wrap; }
+    .modal-actions .btn { flex: 1; justify-content: center; }
+
+    /* TOAST — зверху по центру */
+    .toast-container { top: 12px; right: 12px; left: 12px; align-items: center; }
+    .toast { min-width: unset; width: 100%; justify-content: center; font-size: 13px; }
+
+    /* SHARE modal link */
+    #share-link-text { word-break: break-all; font-size: 11px; }
+
+    /* Results table — горизонтальний скрол */
+    .manage-body [style*="overflow-x:auto"] { overflow-x: auto; }
+    table { min-width: 480px; }
+
+    /* Question item actions */
+    .question-item-header { flex-wrap: wrap; }
+    .question-actions .btn { padding: 5px 10px; }
+
+    /* Start info */
+    .start-title { font-size: 22px; }
+    .start-info { gap: 16px; }
+    .info-val { font-size: 20px; }
+
+    /* Theme toggle fixed */
+    .theme-toggle-fixed { bottom: 16px; right: 16px; width: 40px; height: 40px; font-size: 16px; }
+    /* Admin header controls full width on mobile */
+    .admin-header-controls { width: 100%; }
+    .admin-header-controls .select,
+    .admin-header-controls .btn { flex: 1; width: auto; min-width: unset !important; }
+    /* Hide nav theme toggle on mobile — floating button is enough */
+    #theme-toggle-btn { display: none; }
+    /* Compact logout */
+    .logout-text { display: none; }
+    .logout-icon { display: inline !important; }
+    #logout-btn { padding: 6px 10px; }
+
+    /* Auth page */
+    .auth-wrap { padding: 24px 16px; align-items: flex-start; padding-top: 40px; }
+    .card { padding: 20px 16px; }
+  }
+
+  @media(max-width: 400px) {
+    .nav-tab { padding: 6px 10px; font-size: 11px; }
+    .btn-lg { padding: 12px 20px; font-size: 15px; }
+    .page-title { font-size: 20px; }
+    .tmcard-title { font-size: 13px; }
   }
   .divider { height: 1px; background: var(--border); margin: 20px 0; }
 
@@ -619,7 +724,7 @@
       <span id="nav-user-name" style="font-size:13px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
     </div>
     <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Змінити тему">🌙</button>
-    <button class="btn btn-ghost btn-sm" onclick="doLogout()">Вийти</button>
+    <button class="btn btn-ghost btn-sm" id="logout-btn" onclick="doLogout()"><span class="logout-text">Вийти</span><span class="logout-icon" style="display:none;">✕</span></button>
   </div>
 </nav>
 
@@ -739,7 +844,7 @@
           <div class="page-title">⚙️ Адміністрування</div>
           <div class="page-sub">Редактор питань та тестів</div>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <div class="admin-header-controls" style="display:flex;gap:10px;flex-wrap:wrap;">
           <select class="select" id="admin-test-select" style="width:auto;min-width:180px;" onchange="loadTestInAdmin()">
             <option value="">— Обери тест —</option>
           </select>
