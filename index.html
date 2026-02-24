@@ -1314,10 +1314,18 @@ function showPage(name) {
 // HOME
 // ============================================================
 function updateHomeStats() {
-  document.getElementById('stat-tests').textContent = state.tests.length;
-  const totalQ = state.tests.reduce((s, t) => s + (t.questions?.length || 0), 0);
+  const user = fbUser();
+  const myTests = user
+    ? state.tests.filter(t => !t.ownerId || t.ownerId === user.uid || t.ownerId === 'local')
+    : state.tests;
+  document.getElementById('stat-tests').textContent = myTests.length;
+  const totalQ = myTests.reduce((s, t) => s + (t.questions?.length || 0), 0);
   document.getElementById('stat-questions').textContent = totalQ;
-  document.getElementById('stat-results').textContent = state.results.length;
+  const myTestIds = new Set(myTests.map(t => t.id));
+  const myResults = user
+    ? state.results.filter(r => myTestIds.has(r.testId))
+    : state.results;
+  document.getElementById('stat-results').textContent = myResults.length;
 
   const user = fbUser();
   if (user?.displayName) {
@@ -1728,12 +1736,21 @@ function initTestPage() {
   setDisplay('test-results', 'none');
 
   const cards = document.getElementById('test-cards');
-  if (!state.tests.length) {
-    cards.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">📋</div><p>Немає доступних тестів.</p></div>';
+
+  // Show only tests created by current user (or all tests for anonymous share-link students)
+  const user = fbUser();
+  const visibleTests = isShareLinkAccess()
+    ? state.tests  // share link — all tests visible (needed to find by id from URL)
+    : (user
+        ? state.tests.filter(t => !t.ownerId || t.ownerId === user.uid || t.ownerId === 'local')
+        : state.tests);
+
+  if (!visibleTests.length) {
+    cards.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">📋</div><p>У вас ще немає тестів. Створіть перший!</p></div>';
     return;
   }
   cards.innerHTML = '';
-  state.tests.forEach(t => {
+  visibleTests.forEach(t => {
     const totalTime = (t.questions || []).reduce((s, q) => s + (q.time || 0), 0);
     const div = document.createElement('div');
     div.className = 'test-card-item';
